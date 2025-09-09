@@ -6,7 +6,7 @@
     <style>
 .line-clamp-3 {
   display: -webkit-box;
-  -webkit-line-clamp: 3; /* Batasi 3 baris */
+  -webkit-line-clamp: 3; 
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -28,29 +28,50 @@
             </div>
         @endif
 
+        <!-- Filter & Search -->
+        <div class="flex flex-col md:flex-row items-center gap-3 mb-6">
+            <div class="relative flex-1">
+                <input id="searchText" type="text" placeholder="Cari berdasarkan nama / sekolah / tingkat"
+                    class="border border-gray-300 px-3 py-2 rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-purple-400 focus:border-purple-400 w-full">
+                <div class="absolute right-3 top-2.5">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Counter -->
+        <div class="mb-4">
+            <span id="searchResults" class="text-sm text-gray-600"></span>
+        </div>
+
         <div class="bg-white rounded-xl shadow overflow-hidden">
             @if($pesertas->isEmpty())
                 <div class="p-6 text-center text-gray-600">
                     Belum ada peserta di unit Anda.
                 </div>
             @else
-                <table class="min-w-full border text-center">
+                <table id="tabel-peserta" class="min-w-full border text-center">
                     <thead class="bg-gray-100">
                         <tr>
                             <th class="px-4 py-2">No</th>
                             <th class="px-4 py-2">Nama Peserta</th>
+                            <th class="px-4 py-2">Grade</th>
                             <th class="px-4 py-2">Asal Institusi</th>
                             <th class="px-4 py-2">Nilai Rata-rata</th>
                             <th class="px-4 py-2">Beri Nilai</th>
+                            
                             <th class="px-4 py-2">Detail Peserta</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($pesertas as $i => $peserta)
-                            <tr class="border-t">
-                                <td class="px-4 py-2">{{ $i+1 }}</td>
-                                <td class="px-4 py-2">{{ $peserta->formulirPendaftaran->nama_lengkap ?? '-' }}</td>
-                                <td class="px-4 py-2">{{ $peserta->formulirPendaftaran->nama_institusi ?? '-' }}</td>
+                            <tr class="border-t participant-row" data-index="{{ $i+1 }}">
+                                <td class="px-4 py-2 row-number">{{ $i+1 }}</td>
+                                <td class="px-4 py-2 nama-peserta">{{ $peserta->formulirPendaftaran->nama_lengkap ?? '-' }}</td>
+                                <td class="px-4 py-2 grade-peserta">{{ $peserta->formulirPendaftaran->grade ?? '-' }}</td>
+                                <td class="px-4 py-2 institusi-peserta">{{ $peserta->formulirPendaftaran->nama_institusi ?? '-' }}</td>
                                 <td class="px-4 py-2">{{ $peserta->penilaian->rata_rata ?? 0 }}</td>
                                 <td class="px-4 py-2">
                                     <button onclick="openModal('{{ $peserta->id }}')" 
@@ -58,6 +79,7 @@
                                         Beri Nilai
                                     </button>
                                 </td>
+                                
                                 <td class="px-4 py-2">
                                     <button onclick="openDetail('{{ $peserta->id }}')" 
                                             class="bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700">
@@ -324,7 +346,6 @@
                                         @endif
                                     </div>
 
-
                                     {{-- Tombol Tutup --}}
                                     <div class="flex justify-end mt-6">
                                         <button type="button" onclick="closeDetail('{{ $peserta->id }}')" 
@@ -334,11 +355,20 @@
                                     </div>
                                 </div>
                             </div>
-
-
                         @endforeach
                     </tbody>
                 </table>
+                
+                <!-- No Results Message -->
+                <div id="noResults" class="hidden p-6 text-center text-gray-600">
+                    <div class="flex flex-col items-center">
+                        <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <p class="text-lg font-medium">Tidak ada hasil pencarian</p>
+                        <p class="text-sm text-gray-500 mt-1">Coba gunakan kata kunci yang berbeda</p>
+                    </div>
+                </div>
             @endif
         </div>
     </div>
@@ -402,18 +432,6 @@
                     .classList.add('text-purple-600','font-semibold','border-b-2','border-purple-600');
         }
 
-                function toggleIsi(id) {
-            let isi = document.getElementById("isi-"+id);
-            let btn = event.target;
-
-            if (isi.classList.contains("line-clamp-3")) {
-                isi.classList.remove("line-clamp-3");
-                btn.innerText = "Tutup";
-            } else {
-                isi.classList.add("line-clamp-3");
-                btn.innerText = "Lihat Selengkapnya";
-            }
-        }
         function toggleIsi(id, btn) {
             const p = document.getElementById('isi-' + id);
             if (p.classList.contains('line-clamp-3')) {
@@ -424,6 +442,78 @@
                 btn.textContent = 'Lihat Selengkapnya';
             }
         }
+
+        // Improved automatic search filter
+        function cariPeserta() {
+            const input = document.getElementById("searchText").value.toLowerCase().trim();
+            const rows = document.querySelectorAll("#tabel-peserta tbody .participant-row");
+            const noResultsDiv = document.getElementById("noResults");
+            const searchResultsSpan = document.getElementById("searchResults");
+            
+            let visibleCount = 0;
+            let totalCount = rows.length;
+
+            rows.forEach((row, index) => {
+                // Get text from specific columns
+                const nama = row.querySelector(".nama-peserta")?.textContent.toLowerCase().trim() || "";
+                const grade = row.querySelector(".grade-peserta")?.textContent.toLowerCase().trim() || "";
+                const institusi = row.querySelector(".institusi-peserta")?.textContent.toLowerCase().trim() || "";
+                
+                // Check if search input matches any of the fields
+                const isVisible = nama.includes(input) || 
+                                grade.includes(input) || 
+                                institusi.includes(input);
+                
+                if (isVisible || input === '') {
+                    row.style.display = "";
+                    visibleCount++;
+                    // Update row number for visible rows
+                    const rowNumber = row.querySelector('.row-number');
+                    if (rowNumber) {
+                        rowNumber.textContent = visibleCount;
+                    }
+                } else {
+                    row.style.display = "none";
+                }
+            });
+
+            // Show/hide no results message
+            if (visibleCount === 0 && input !== '') {
+                noResultsDiv.classList.remove('hidden');
+            } else {
+                noResultsDiv.classList.add('hidden');
+            }
+
+            // Update search results counter
+            if (input === '') {
+                searchResultsSpan.textContent = `Menampilkan ${totalCount} peserta`;
+            } else {
+                searchResultsSpan.textContent = `Menampilkan ${visibleCount} dari ${totalCount} peserta untuk "${input}"`;
+            }
+        }
+
+        // Initialize search on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const totalRows = document.querySelectorAll("#tabel-peserta tbody .participant-row").length;
+            const searchResultsSpan = document.getElementById("searchResults");
+            searchResultsSpan.textContent = `Menampilkan ${totalRows} peserta`;
+        });
+
+        // Clear all filters function
+        function clearAllFilters() {
+            document.getElementById("searchText").value = '';
+            setFilter('all');
+        }
+        
+        // Auto-trigger search as user types
+        document.getElementById("searchText").addEventListener("input", cariPeserta);
+
+        // Clear search functionality (optional)
+        document.getElementById("searchText").addEventListener("keydown", function(e) {
+            if (e.key === 'Escape') {
+                clearAllFilters();
+            }
+        });
     </script>
 </body>
 </html>
